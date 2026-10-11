@@ -1,130 +1,92 @@
-# P-CULTA: Pakistani Urdu Cultural Pragmatics Benchmark
+# URSA: Who Speaks to Whom? A Benchmark for Sociopragmatic Generation in Urdu
 
-P-CULTA is a benchmark for evaluating whether LLMs can generate **sociopragmatically appropriate** Urdu — responses that respect deference, indirectness, reciprocity, and face-management norms specific to Pakistani culture, not just fluent or semantically correct text. A fluent, on-topic response can still be culturally inappropriate: e.g. flatly refusing an elder's insistent food offer, instead of first acknowledging the offer before declining.
+**URSA** (Urdu Relational Sociopragmatic Alignment; formerly *P-CULTA*) tests whether LLMs reply to someone in a way that fits the relationship between speaker and addressee, not just in fluent, on-topic Urdu. For example, an elder's insistent food offer should be acknowledged warmly before it is declined.
 
-We evaluate four instruction-tuned LLMs (GPT-4o-mini, Llama-3.1-8B, Qwen2.5-7B, and Qalb-1.0, an Urdu-specialized model) across **zero-shot, few-shot, few-shot fine-tuning, and QLoRA supervised fine-tuning** regimes, under four progressively enriched information conditions: Utterance (U), +Context (U+C), +Roles (U+C+R), +Power Distance (U+C+R+PD).
+> Some file names still use the old project name (`P_CULTA_*`); they are unchanged so existing scripts keep working.
 
-**Key finding:** sociopragmatic competence does not come from model scale or Urdu-specific pretraining alone. Explicit social information (roles, power distance) and adaptation data both drive large gains, with the best fine-tuned models reaching **0.95 CAS** and **below 0.01 FTV** on held-out data.
+## Key Findings
 
----
+We evaluate GPT-4o-mini, Llama-3.1-8B, Qwen2.5-7B, and the Urdu-specialized Qalb-1.0-8B under zero-shot, few-shot, few-shot fine-tuning (FSFT), and QLoRA supervised fine-tuning (SFT), adding Context (C), Roles (R), and Power Distance (PD) to the prompt step by step.
+
+- **Urdu fluency and pretraining are not enough.** With the utterance alone, zero-shot Qalb scores **0.03 CAS**.
+- **Examples make social information usable.** With demonstrations, CAS rises with every added piece of information. GPT-4o-mini reaches **0.94 CAS, 0.00 FTV** (few-shot, Set 1).
+- **Fine-tuning helps most when the prompt says little.** Pooling all 51 examples helps every model.
+- **SFT closes the gap.** All open models reach **0.91–0.95 CAS with FTV ≤ 0.01** on held-out data; the spread between them shrinks from 0.22 (zero-shot) to 0.04.
 
 ## Dataset
 
-### Benchmark statistics
-
-| Property | Description |
+| Property | Value |
 |---|---|
-| Language | Pakistani Urdu |
-| Finalized scenarios | 306 |
-| Sociopragmatic topics | 17 |
-| Instances per topic | 18 |
-| Topic share | 5.9% per topic |
-| User roles | 50 |
-| Model roles | 42 |
-| Distinct role dyads | 58 |
-| Power distance | Low, Medium, High |
-| Register | Formal, Informal |
-| Sensitivity | Positive, Neutral, Negative |
-| Pragmatic genre labels | 243 |
-| Distinct contexts | 305 |
-| Distinct user utterances | 304 |
-| Distinct gold responses | 306 |
-| Initial candidate responses | 918 |
-| Reviewers for gold curation | 2 |
-| Judges for model evaluation | 2 |
+| Setting | Everyday Pakistani and Indian life, in Urdu |
+| Scenarios / topics | 306 / 17 (18 per topic) |
+| User roles / model roles / directed dyads | 50 / 42 / 58 |
+| Power distance | High 129 · Medium 87 · Low 90 |
+| Register | Formal 197 · Informal 109 |
+| Sensitivity | Positive 129 · Neutral 99 · Negative 78 |
+| Pragmatic genres | 243 (210 occur once) |
 
-### Sociopragmatic topics
+**Topics:** Refusing Offers · Invitation to a Meal · Declining Gifts · Receiving Gifts · Offering Help · Paying for a Meal · Respect for Elders · Family Obligations & Requests · Handling Criticism & Disagreements · Invitation to Celebrations · Asking for Permission · Accepting & Rejecting Compliments · Apologies for Mistakes · Health Enquiry · Giving Orders & Commands · Expressing Gratitude · Negotiating Favors
 
-The benchmark contains 17 equally represented topics:
+**Instance fields:** ID, Topic, User Role, Model Role, Power Distance, Register, Pragmatic Genre, Sensitivity, Context, User Utterance, Curated Gold Response.
 
-Refusing Offers · Invitation to a Meal · Declining Gifts · Receiving Gifts · Offering Help · Paying for a Meal · Respect for Elders · Family Obligations & Requests · Handling Criticism & Disagreements · Invitation to Celebrations · Asking for Permission · Accepting & Rejecting Compliments · Apologies for Mistakes · Health Enquiry · Giving Orders & Commands · Expressing Gratitude · Negotiating Favors
+Role pairs are **directed** (Student → Teacher ≠ Teacher → Student) and keep Urdu kinship distinctions (*chacha*, *taya*, *mamu*). All scenarios were written by the authors; none come from social media.
 
-### Instance structure
+**Gold curation.** For each scenario the authors wrote 3 candidate replies (918 total). Two external reviewers rated each on six dimensions. A candidate is eligible as gold if `CAS_abs = (RA+I+FS+CA)/16 > 0.90`; the highest `CAS_abs` wins, with lower FTV breaking ties. The two output annotators later rated all candidates blind and scored gold strictly highest in 297/306 scenarios, never below another candidate.
 
-Each finalized instance contains:
+## Evaluation
 
-| Field | Description |
-|---|---|
-| ID | Unique scenario identifier |
-| Topic | Sociopragmatic topic |
-| User Role | Social role of the person producing the initial utterance |
-| Model Role | Expected respondent's social role |
-| Power Distance | Low, Medium, or High |
-| Register | Formal or Informal |
-| Pragmatic Genre | Strategy through which the topic is realized |
-| Sensitivity | Positive, Neutral, or Negative |
-| Context | Culturally situated interactional situation |
-| User Utterance | Initial utterance in the interaction |
-| Curated Gold Response | Culturally grounded response selected during curation |
+Two native-speaker annotators (no LLM judges) rate each reply from 0 to 4 on six dimensions, seeing the full scenario regardless of what the model was given.
 
-The benchmark preserves **directed** interpersonal relationships — a Student → Teacher interaction is not treated as equivalent to a Teacher → Student interaction, since expected deference runs in one direction.
+- **Alignment:** Relational Alignment (RA), Indirectness (I), Face-saving (FS), Cultural Appropriateness (CA)
+- **Threat (0 = none):** Directness Threat (DT), Hierarchy Violation (HV, directional)
 
-### Gold-response curation
+**CAS** = `1 − mean_d |M_d − G_d| / 4` over RA, I, FS, CA. Higher is better; the gold profile comes from the curation reviewers.
+**FTV** = `(DT + HV) / 8`, from the model reply alone. Lower is better.
+**Bias** = `1 − CAS` (a restatement, not an independent metric).
 
-Each of the 306 scenarios was paired with **3 candidate responses** (918 total), deliberately varied in sociopragmatic appropriateness rather than fluency. Two academic reviewers independently scored every candidate on the same six dimensions used for model evaluation (below), aggregated into an absolute Cultural Appropriateness score and a Face-Threat/Violation score. The candidate with the **highest appropriateness and lowest threat score** was retained as gold, on reviewer agreement; scenarios with disagreement or no acceptable candidate were revised or discarded.
+Inter-annotator quadratic weighted κ is ≈ 0.99 pooled (0.934–1.000 per setting). Models are compared with paired Wilcoxon signed-rank tests, Holm-corrected within each regime.
 
----
+## Experimental Setup
 
-## Evaluation Protocol
+- **Conditions (cumulative):** U → U+C → U+C+R → U+C+R+PD. Topic, register, sensitivity, and genre are never shown to the model.
+- **Splits:** 51-item demonstration bank (3 disjoint 17-item sets, one per topic); the remaining **255** items form the evaluation set. SFT uses a separate 70/30 split of all 306 (**214 train / 92 test**), so SFT numbers are comparable to the other regimes only in trend.
+- **Regimes:** zero-shot, few-shot (3 × 17), FSFT (3 × 17 and all 51), SFT. GPT-4o-mini is prompting-only. Total: 124 configurations, 29,664 generations.
+- **Decoding:** temperature 0.3, 40 max new tokens, repetition penalty 1.1 (open models), one run per configuration.
+- **Fine-tuning:** QLoRA (4-bit NF4), rank 16, α 32, dropout 0.05, all attention and MLP projections; 10 epochs, effective batch 8, lr 2e-4, cosine; loss on reply tokens only; seed 42.
 
-Each model response (and the gold response itself) is rated by **two independent judges** on a 0–4 scale across **six sociopragmatic dimensions**:
+## Results (CAS, U → U+C+R+PD)
 
-- **Relational Alignment (RA)** — calibration to the User Role → Model Role, power distance, register, and sensitivity of the scenario
-- **Indirectness (I)** — a degree of indirectness appropriate to the relationship and topic, not indirectness for its own sake
-- **Face-saving (FS)** — whether the response protects the face of speaker and addressee, not just polite-sounding wording
-- **Cultural Appropriateness (CA)** — overall fit with Pakistani sociocultural expectations, distinct from generic politeness
+| Regime | GPT-4o-mini | Llama-3.1 | Qalb-1.0 | Qwen2.5 |
+|---|---|---|---|---|
+| Zero-shot | 0.55 → 0.75 | 0.22 → 0.30 | 0.03 → 0.31 | 0.10 → 0.09 |
+| Few-shot (Set 1) | 0.73 → 0.94 | 0.44 → 0.78 | 0.43 → 0.73 | 0.35 → 0.65 |
+| FSFT (all 51) | – | 0.62 → 0.73 | 0.67 → 0.76 | 0.53 → 0.65 |
+| SFT (70/30) | – | 0.86 → 0.95 | 0.85 → 0.95 | 0.77 → 0.91 |
 
-**Threat dimensions** (does the response cause harm?)
-- **Directness Threat (DT)** — face threat from excessive bluntness or confrontational directness
-- **Hierarchy Violation (HV)** — treatment inconsistent with the specified power-distance relationship (directional, like the role structure itself)
-
-Inter-judge agreement is high across all six dimensions (Cohen's weighted κ between 0.987 and 0.998).
-
-### CAS and FTV
-
-The six per-dimension scores are averaged into two complementary metrics:
-
-- **CAS (Cultural Appropriateness Score)** — the normalized deviation of the model response's four alignment dimensions (RA, I, FS, CA) from the gold response's profile on the same dimensions. `CAS ∈ [0, 1]`, higher is better; `CAS = 1` means the response matches gold appropriateness exactly.
-- **FTV (Face-Threat/Violation)** — the average of the two threat dimensions (DT, HV) for the model response alone, independent of gold. `FTV ∈ [0, 1]`, lower is better.
-- **Bias = 1 − CAS**, reported as an inverted restatement of alignment error, not an independent metric.
-
-A well-calibrated model should approach **CAS → 1** and **FTV → 0** simultaneously — reporting both prevents a response from being credited as high quality on surface politeness alone while masking elevated directness or hierarchy violation. During gold-response curation, an absolute (gold-free) variant of CAS is used instead, since no gold reference exists yet at that stage.
-
----
+Full tables (FTV, Bias, all sets) are in the paper (Tables 1–4) and in `Results/`.
 
 ## Repository Structure
 
 ```
-P-CULTA/
-├── Dataset_files/                     # The benchmark itself
-│   ├── P_CULTA_V2_306.csv             # Full 306-instance benchmark (all metadata + gold responses)
-│   ├── P_CULTA_V2.csv                 # 255-item evaluation split (306 minus the 51-item few-shot/fine-tuning bank)
-│   ├── fewshot_examples.csv           # 51-item few-shot/fine-tuning demonstration bank (disjoint from evaluation split)
-│   ├── fewshot_examples_17_set1/2/3.csv  # Three disjoint 17-item demonstration subsets drawn from the 51-item bank
-│   └── Gold_response_curation/        # Provenance of gold-response selection (candidate scores, curation notebook, inter-annotator agreement)
-│
-├── codes/                             # Notebooks for generation, fine-tuning, and evaluation
-│   ├── Baseline/                      # Zero-shot prompting — GPT-4o-mini, Llama, Qwen, Qalb
-│   ├── fewshot_GPT/, fewshot_Llama/, fewshot_Qwen/, fewshot_Qalb/   # Few-shot prompting per model (Sets 1–3, all 4 info conditions)
-│   ├── fewshot_fineteuning_llama/qalb/qwen/  # QLoRA few-shot fine-tuning (17/51-item scales)
-│   ├── fewshot_finetuning_evaluation/ # Scoring/aggregation for few-shot fine-tuned outputs
-│   ├── sft_llama/qalb/qwen/           # QLoRA supervised fine-tuning on the 70/30 held-out split
-│   └── sft_evaluation/                # Scoring/aggregation for the 70/30 SFT held-out evaluation
-│
-├── Generations/                       # Raw model outputs per regime × model × condition
-├── annotations/                       # Two-judge (judge1/judge2) sociopragmatic ratings + mapping keys, per regime × condition
-└── Results/                           # Aggregated CAS/FTV/Bias, inter-annotator κ, and plots (Tables 1–4 in the paper)
+├── Dataset_files/
+│   ├── P_CULTA_V2_306.csv          # Full benchmark (306 instances)
+│   ├── P_CULTA_V2.csv              # 255-item evaluation set
+│   ├── fewshot_examples.csv        # 51-item demonstration / fine-tuning bank
+│   ├── fewshot_examples_17_set1/2/3.csv
+│   └── Gold_response_curation/     # Candidate scores and curation provenance
+├── codes/                          # Baseline, few-shot, FSFT, SFT, and evaluation notebooks
+├── Generations/                    # Raw model outputs
+├── annotations/                    # Two-annotator ratings (judge1/judge2 = the two human annotators)
+└── Results/                        # CAS / FTV / Bias, κ, significance tests, plots
 ```
-
-## Reading the Dataset
-
-- **`Dataset_files/P_CULTA_V2_306.csv`** is the complete benchmark — one row per scenario, with Topic, User Role, Model Role, Power Distance, Register, Pragmatic Genre, Sensitivity, Context, User Utterance, and the curated Gold Response.
-- **`Dataset_files/P_CULTA_V2.csv`** is the 255-item subset used for evaluation once the 51-item few-shot/fine-tuning bank is held out.
-- **`fewshot_examples*.csv`** are the disjoint demonstration items used only for in-context examples and fine-tuning — never part of the evaluation set.
-- **`Dataset_files/Gold_response_curation/`** documents how each gold response was chosen: 3 authored candidates per scenario, scored by two reviewers on the six sociopragmatic dimensions, with the highest-CAS/lowest-FTV candidate retained on reviewer agreement.
 
 ## Reproducing Results
 
-1. **Generation** — run the notebooks in `codes/Baseline/` (zero-shot) or `codes/fewshot_*` (few-shot) to produce outputs into `Generations/`.
-2. **Fine-tuning** — run `codes/fewshot_fineteuning_*` (17/51-item QLoRA) or `codes/sft_*` (70/30 held-out QLoRA).
-3. **Evaluation** — generations are rated by two judges (`annotations/`) and aggregated into CAS/FTV/Bias with Cohen's weighted κ via `codes/sft_evaluation/` and `codes/fewshot_finetuning_evaluation/`, producing the results in `Results/`.
+1. **Generate:** run `codes/Baseline/` or `codes/fewshot_*` → `Generations/`.
+2. **Fine-tune:** run `codes/fewshot_fineteuning_*` or `codes/sft_*`.
+3. **Evaluate:** aggregate annotations with `codes/fewshot_finetuning_evaluation/` and `codes/sft_evaluation/` → `Results/`.
+
+## Limitations
+
+URSA reflects largely urban norms of Pakistani Urdu; appropriateness varies by region, class, generation, and community. Gold is a high-quality reference, not the only correct reply. With 306 single-turn scenarios, one decoding run per configuration, and a 40-token cap, results are indicative rather than definitive. Norms are described as common practice a model should recognize, not prescriptions to enforce.
+
